@@ -8,53 +8,72 @@
 
 -define(P, dql).
 
-prop_query_parse_unparse() ->
+%% 
+%% prop_query_parse_unparse() ->
+%%     ?FORALL(T, select_stmt(),
+%%             begin
+%%                 Unparsed = dql_unparse:unparse(T),
+%%                 case ?P:parse(Unparsed) of
+%%                     {ok, ReParsed} ->
+%%                         ?WHENFAIL(
+%%                            io:format(user, "   ~p~n-> ~p~n-> ~p~n",
+%%                                      [T, Unparsed, ReParsed]),
+%%                            T == ReParsed);
+%%                     {error, E} ->
+%%                         io:format(user, "   ~p~n-> ~p~n-> ~p~n",
+%%                                   [T, Unparsed, E]),
+%%                         false
+%%                 end
+%%             end).
+%% 
+
+prop_query_destructure_reify() ->
     ?FORALL(T, select_stmt(),
             begin
-                Unparsed = dql_unparse:unparse(T),
-                case ?P:parse(Unparsed) of
-                    {ok, ReParsed} ->
+                {ok, Destructured} = dql_destructure:destructure(T),
+                case dql_reify:reify(Destructured) of
+                    {ok, Reified} ->
                         ?WHENFAIL(
                            io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                     [T, Unparsed, ReParsed]),
-                           T == ReParsed);
+                                     [T, Destructured, Reified]),
+                           Destructured == Reified);
                     {error, E} ->
                         io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                  [T, Unparsed, E]),
+                                  [T, Destructured, E]),
                         false
                 end
             end).
 
-prop_prepare() ->
-    ?SETUP(fun mock/0,
-           ?FORALL(T, select_stmt(),
-                   begin
-                       Unparsed = dql_unparse:unparse(T),
-                       case ?P:prepare(Unparsed) of
-                           {ok, _, _} ->
-                               true;
-                           {error, E} ->
-                               io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                         [T, Unparsed, E]),
-                               false
-                       end
-                   end)).
-
-prop_dflow_prepare() ->
-    ?SETUP(fun mock/0,
-           ?FORALL(T, select_stmt(),
-                   begin
-                       Unparsed = dql_unparse:unparse(T),
-                       case dqe:prepare(Unparsed) of
-                           {ok, _, _} ->
-                               true;
-                           {error, E} ->
-                               io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                         [T, Unparsed, E]),
-                               false
-                       end
-                   end)).
-
+%% prop_prepare() ->
+%%     ?SETUP(fun mock/0,
+%%            ?FORALL(T, select_stmt(),
+%%                    begin
+%%                        Unparsed = dql_unparse:unparse(T),
+%%                        case ?P:prepare(Unparsed) of
+%%                            {ok, _, _} ->
+%%                                true;
+%%                            {error, E} ->
+%%                                io:format(user, "   ~p~n-> ~p~n-> ~p~n",
+%%                                          [T, Unparsed, E]),
+%%                                false
+%%                        end
+%%                    end)).
+%% 
+%% prop_dflow_prepare() ->
+%%     ?SETUP(fun mock/0,
+%%            ?FORALL(T, select_stmt(),
+%%                    begin
+%%                        Unparsed = dql_unparse:unparse(T),
+%%                        case dqe:prepare(Unparsed) of
+%%                            {ok, _, _} ->
+%%                                true;
+%%                            {error, E} ->
+%%                                io:format(user, "   ~p~n-> ~p~n-> ~p~n",
+%%                                          [T, Unparsed, E]),
+%%                                false
+%%                        end
+%%                    end)).
+%% 
 mock() ->
     application:ensure_all_started(dqe_connection),
     meck:new(ddb_connection),
