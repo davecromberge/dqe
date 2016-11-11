@@ -1,7 +1,10 @@
 -module(dql_deconstruct).
 
+-include("dl_query_model.hrl").
+
 -compile([export_all]).
 
+-spec deconstruct(binary()) -> {ok, query()} | badmatch | term().
 deconstruct(Query) when is_binary(Query) ->
     case expand_query(Query) of
         {ok, ExpandedQ} ->
@@ -18,6 +21,7 @@ deconstruct(Query) when is_binary(Query) ->
 %% Private functions
 %% =================
 
+-spec expand_query(binary()) -> {ok, map()} | {error, term()}.
 expand_query(Q) ->
     S = binary_to_list(Q),
     try
@@ -28,95 +32,6 @@ expand_query(Q) ->
             {error, Reason}
     end.
 
-%%selector:
-%%
-%% -type op :: 'eq' | 'neq' | 'present' | 'AND' | 'OR'
-%%
-%% -record(condition, {op :: op(),
-%%                     args :: [map()]}).
-%%
-%% -type condition() :: #condition{}.
-%%
-%% -record(selector, {collection :: binary(),
-%%                    metric :: binary(),
-%%                    condition :: condition()},
-%%
-%% -type selector() :: #selector{}.
-%%
-%% -record(func, {name :: binary,
-%%                args :: [any()]}).
-%%
-%% -type func() :: #func{}.
-%%
-%%
-%%
-%% -type query() :: #query{}.
-%%
-%% parse(L) when is_list(L) ->
-%%      [parse(Q) || Q <- L];
-%%
-%% parse(#{op := dummy}) ->
-%%      #{};
-%%
-%% parse(#{op := get, args := [_B, _M]}, Q) ->
-%%     R;
-%%
-%% parse(#{op := sget, args := [_B, _M]}, Q) ->
-%%     R;
-%%
-%% parse(#{op := lookup, args := [B, undefined]}, Selector) ->
-%%     Metric = <<"ALL">>,
-%%     Selector#{metric = Metric}.
-%% parse(#{op := lookup, args := [B, undefined, Where]}) ->
-%%     Metric = <<"ALL">>,
-%%     Condition = unparse_where(Where),
-%%     Selector#{metric = Metric, condition = Condition}.
-%% parse(#{op := lookup, args := [B, M]}) ->
-%%     <<(unparse_metric(M))/binary, " FROM '", B/binary, "'">>;
-%% parse(#{op := lookup, args := [B, M, Where]}) ->
-%%     <<(unparse_metric(M))/binary, " FROM '", B/binary,
-%%
-
--type op() :: 'eq' | 'neq' | 'present' | 'and' | 'or'.
-
--record(condition, {op :: op(),
-                    args :: [term()] }).
-
--type condition() :: #condition{}.
-
--record(timeframe, { beginning :: binary(),
-                     ending    :: binary(),
-                     duration  :: binary() }).
-
--type timeframe() :: #timeframe{}.
-
--record(selector, { bucket :: binary(),
-                    collection :: binary(),
-                    metric :: binary(),
-                    condition :: condition() }).
-
-%%-type selector() :: #selector{}.
-
--record(fn, { name :: binary(),
-              args :: [term()] }).
-
-%% -type fn() :: #fn{}.
-
-%% -record(part, { selector :: selector(),
-%%                 timeshift :: binary(),
-%%                 fn :: fn(),
-%%                 alias :: binary() }).
-
-%% -record(query, { parts :: [part()],
-%%                  beginning :: binary(),
-%%                  ending :: binary(),
-%%                  duration :: binary() }).
-
-%% -type query() :: #query{}.
-
--type lens() :: {Get :: fun(), Put :: fun()}.
-
--spec access_p(term()) -> lens().
 access_p(Key) ->
     {fun(R) -> element(2, lists:keyfind(Key, 1, R)) end,
      fun(A, R) -> lists:keystore(Key, 1, R, {Key, A}) end}.
@@ -129,7 +44,7 @@ compose({L1G, L1P}, {L2G, L2P}) ->
 deconstruct_({ select, Q, [], T}) ->
     #timeframe{beginning = B, ending = E, duration = D} = timeframe(T),
     Parts = deconstruct_(Q),
-    #{beginning => B, ending => E, duration => D, parts => Parts};
+    #query{beginning = B, ending = E, duration = D, parts = Parts};
 
 deconstruct_(L) when is_list(L) ->
     [deconstruct_(Q) || Q <- L];
@@ -141,11 +56,11 @@ deconstruct_(#{ op := sget, args := [B, M] }) ->
     #selector{bucket = B, metric = M};
 
 deconstruct_(#{ op := lookup, args := [B, undefined] }) ->
-    #selector{collection = B, metric = <<"ALL">>};
+    #selector{collection = B, metric = [<<"ALL">>]};
 
 deconstruct_(#{ op := lookup, args := [B, undefined, Where] }) ->
     Condition = deconstruct_where(Where),
-    #selector{collection = B, metric = <<"ALL">>, condition = Condition};
+    #selector{collection = B, metric = [<<"ALL">>], condition = Condition};
 deconstruct_(#{op := lookup, args := [B, M] }) ->
     #selector{collection = B, metric = M};
 deconstruct_(#{op := lookup, args := [B, M, Where] }) ->
@@ -159,38 +74,38 @@ deconstruct_(#{op := fcall, args := #{name := Name, inputs := Args }}) ->
 deconstruct_(N) when is_integer(N)->
     <<(integer_to_binary(N))/binary>>;
 deconstruct_(N) when is_float(N) ->
-    <<(float_to_binary(N))/binary>>.
+    <<(float_to_binary(N))/binary>>;
+deconstruct_({time, T, _Unit}) ->
+    <<(integer_to_binary(T))/binary>>;
+deconstruct_(#{op := time, args := [T, _Unit]}) ->
+    <<(integer_to_binary(T))/binary>>.
 
 -spec timeframe(map()) -> timeframe().
 timeframe(#{op := last, args := [Q] }) ->
-    #timeframe{duration = moment(Q)};
+    #timeframe{duration = deconstruct_(Q)};
 timeframe(#{op := between, args := [A, B] }) ->
-    #timeframe{beginning = moment(A), ending = moment(B) };
+    #timeframe{beginning = deconstruct_(A), ending = deconstruct_(B) };
 timeframe(#{op := 'after', args := [A, B]}) ->
-    #timeframe{beginning = moment(A), duration = moment(B) };
+    #timeframe{beginning = deconstruct_(A), duration = deconstruct_(B) };
 timeframe(#{op := before, args := [A, B]}) ->
-    #timeframe{ending = moment(A), duration = moment(B) };
+    #timeframe{ending = deconstruct_(A), duration = deconstruct_(B) };
 timeframe(#{op := ago, args := [T] }) ->
-    #timeframe{beginning = moment(T)}.
+    #timeframe{beginning = deconstruct_(T)}.
 
-moment({time, T, _Unit}) ->
-    <<(integer_to_binary(T))/binary>>;
-moment(#{op := time, args := [T, _Unit]}) ->
-    <<(integer_to_binary(T))/binary>>.
-
+-spec deconstruct_tag({tag, binary(), binary()}) -> list(binary()).
 deconstruct_tag({tag, <<>>, K}) ->
     [<<>>, K];
 deconstruct_tag({tag, N, K}) ->
     [N, K].
 
 deconstruct_where({'=', T, V}) ->
-    #{ op => 'eq', args => [deconstruct_tag(T), V] };
+    #condition{ op = 'eq', args = [deconstruct_tag(T), V] };
 deconstruct_where({'!=', T, V}) ->
-    #{ op => 'neq', args => [deconstruct_tag(T), V/binary] };
+    #condition{ op = 'neq', args = [deconstruct_tag(T), V] };
 deconstruct_where({'or', Clause1, Clause2}) ->
     P1 = deconstruct_where(Clause1),
     P2 = deconstruct_where(Clause2),
-    #{ op => 'or', args => [ P1, P2 ] };
+    #condition{ op = 'or', args = [ P1, P2 ] };
 deconstruct_where({'and', Clause1, Clause2}) ->
     P1 = deconstruct_where(Clause1),
     P2 = deconstruct_where(Clause2),

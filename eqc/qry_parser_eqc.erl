@@ -30,16 +30,17 @@
 prop_query_destructure_reify() ->
     ?FORALL(T, select_stmt(),
             begin
-                {ok, Destructured} = dql_destructure:destructure(T),
+                Query = dql_unparse:unparse(T),
+                {ok, Destructured} = dql_deconstruct:deconstruct(Query),
                 case dql_reify:reify(Destructured) of
                     {ok, Reified} ->
                         ?WHENFAIL(
                            io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                     [T, Destructured, Reified]),
+                                     [Query, Destructured, Reified]),
                            Destructured == Reified);
                     {error, E} ->
                         io:format(user, "   ~p~n-> ~p~n-> ~p~n",
-                                  [T, Destructured, E]),
+                                  [Query, Destructured, E]),
                         false
                 end
             end).
