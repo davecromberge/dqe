@@ -37,7 +37,7 @@ prop_query_destructure_reify() ->
                         ?WHENFAIL(
                            io:format(user, "   ~p~n-> ~p~n-> ~p~n",
                                      [Query, Destructured, Reified]),
-                           Destructured == Reified);
+                           Query == Reified);
                     {error, E} ->
                         io:format(user, "   ~p~n-> ~p~n-> ~p~n",
                                   [Query, Destructured, E]),
@@ -59,7 +59,7 @@ prop_query_destructure_reify() ->
 %%                                false
 %%                        end
 %%                    end)).
-%% 
+%%
 %% prop_dflow_prepare() ->
 %%     ?SETUP(fun mock/0,
 %%            ?FORALL(T, select_stmt(),

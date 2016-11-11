@@ -39,7 +39,6 @@ unparse(#{op := time, args := [N, U]}) ->
     Us = atom_to_binary(U, utf8),
     <<(integer_to_binary(N))/binary, " ", Us/binary>>;
 
-
 unparse(#{ op := get, args := [B, M] }) ->
     <<(unparse_metric(M))/binary, " BUCKET '", B/binary, "'">>;
 

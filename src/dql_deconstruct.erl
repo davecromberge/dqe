@@ -42,55 +42,69 @@ compose({L1G, L1P}, {L2G, L2P}) ->
      fun(A, R) -> L1P(L2P(A, L1G(R)), R) end}.
 
 deconstruct_({ select, Q, [], T}) ->
-    #timeframe{beginning = B, ending = E, duration = D} = timeframe(T),
+    #timeframe{ beginning = B, ending = E, duration = D } = timeframe(T),
     Parts = deconstruct_(Q),
-    #query{beginning = B, ending = E, duration = D, parts = Parts};
+    #query{ beginning = B, ending = E, duration = D, parts = Parts };
 
 deconstruct_(L) when is_list(L) ->
-    [deconstruct_(Q) || Q <- L];
+    [begin
+         Deconstructed = deconstruct_(Q),
+         case Deconstructed of
+            #selector{} ->
+                #part{ selector = Deconstructed };
+            #fn{} ->
+                #part{ fn = Deconstructed };
+            _ ->
+                Deconstructed
+        end
+     end || Q <- L];
 
 deconstruct_(#{ op := get, args := [B, M] }) ->
-    #selector{bucket = B, metric = M};
+    #selector{ bucket = B, metric = M };
 
 deconstruct_(#{ op := sget, args := [B, M] }) ->
-    #selector{bucket = B, metric = M};
+    #selector{ bucket = B, metric = M };
 
 deconstruct_(#{ op := lookup, args := [B, undefined] }) ->
-    #selector{collection = B, metric = [<<"ALL">>]};
+    #selector{ collection = B, metric = [<<"ALL">>] };
 
 deconstruct_(#{ op := lookup, args := [B, undefined, Where] }) ->
     Condition = deconstruct_where(Where),
-    #selector{collection = B, metric = [<<"ALL">>], condition = Condition};
-deconstruct_(#{op := lookup, args := [B, M] }) ->
-    #selector{collection = B, metric = M};
-deconstruct_(#{op := lookup, args := [B, M, Where] }) ->
+    #selector{ collection = B, metric = [<<"ALL">>], condition = Condition };
+deconstruct_(#{ op := lookup, args := [B, M] }) ->
+    #selector{ collection = B, metric = M };
+deconstruct_(#{ op := lookup, args := [B, M, Where] }) ->
     Condition = deconstruct_where(Where),
-    #selector{collection = B, metric = M, condition = Condition};
+    #selector{ collection = B, metric = M, condition = Condition };
 
 deconstruct_(#{op := fcall, args := #{name := Name, inputs := Args }}) ->
     Qs = deconstruct_(Args),
     #fn{ name = Name, args = Qs };
 
 deconstruct_(N) when is_integer(N)->
-    <<(integer_to_binary(N))/binary>>;
+    N;
 deconstruct_(N) when is_float(N) ->
-    <<(float_to_binary(N))/binary>>;
-deconstruct_({time, T, _Unit}) ->
-    <<(integer_to_binary(T))/binary>>;
-deconstruct_(#{op := time, args := [T, _Unit]}) ->
-    <<(integer_to_binary(T))/binary>>.
+    N;
+deconstruct_({time, T, U}) ->
+    Us = atom_to_binary(U, utf8),
+    <<(integer_to_binary(T))/binary, " ", Us/binary>>;
+deconstruct_(#{op := time, args := [T, U]}) ->
+    Us = atom_to_binary(U, utf8),
+    <<(integer_to_binary(T))/binary, " ", Us/binary>>;
+deconstruct_(now) ->
+    now.
 
 -spec timeframe(map()) -> timeframe().
-timeframe(#{op := last, args := [Q] }) ->
-    #timeframe{duration = deconstruct_(Q)};
-timeframe(#{op := between, args := [A, B] }) ->
-    #timeframe{beginning = deconstruct_(A), ending = deconstruct_(B) };
-timeframe(#{op := 'after', args := [A, B]}) ->
-    #timeframe{beginning = deconstruct_(A), duration = deconstruct_(B) };
-timeframe(#{op := before, args := [A, B]}) ->
-    #timeframe{ending = deconstruct_(A), duration = deconstruct_(B) };
-timeframe(#{op := ago, args := [T] }) ->
-    #timeframe{beginning = deconstruct_(T)}.
+timeframe(#{ op := last, args := [Q] }) ->
+    #timeframe{ duration = deconstruct_(Q) };
+timeframe(#{ op := between, args := [A, B] }) ->
+    #timeframe{ beginning = deconstruct_(A), ending = deconstruct_(B) };
+timeframe(#{ op := 'after', args := [A, B] }) ->
+    #timeframe{ beginning = deconstruct_(A), duration = deconstruct_(B) };
+timeframe(#{ op := before, args := [A, B] }) ->
+    #timeframe{ ending = deconstruct_(A), duration = deconstruct_(B) };
+timeframe(#{ op := ago, args := [T] }) ->
+    #timeframe{ beginning = deconstruct_(T) }.
 
 -spec deconstruct_tag({tag, binary(), binary()}) -> list(binary()).
 deconstruct_tag({tag, <<>>, K}) ->

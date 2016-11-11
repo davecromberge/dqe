@@ -4,8 +4,10 @@
 
 -include("dl_query_model.hrl").
 
-reify(D = #query{parts = Parts}) ->
-    <<"SELECT ", (reify(Parts))/binary, " ", (reify_timeframe(D))/binary>>;
+reify(D = #query{ parts = Parts }) ->
+    Reified = <<"SELECT ", (reify(Parts))/binary, " ",
+                (reify_timeframe(D))/binary>>,
+    {ok, Reified};
 
 reify(Parts) when is_list(Parts) ->
     Ps = [reify(P) || P <- Parts],
@@ -13,7 +15,7 @@ reify(Parts) when is_list(Parts) ->
 
 reify(#part{ selector = #selector{ collection = undefined, bucket = B,
                                    metric = M, condition = undefined }}) ->
-    <<(reify_metric(M))/binary, " BUCKET '", B/binary>>;
+    <<(reify_metric(M))/binary, " BUCKET '", B/binary, "'">>;
 
 reify(#part{ selector = #selector{ collection = undefined, bucket = B,
                                    metric = M, condition = Cond }}) ->
@@ -22,12 +24,25 @@ reify(#part{ selector = #selector{ collection = undefined, bucket = B,
 
 reify(#part{ selector = #selector{ collection = C, bucket = undefined,
                                    metric = M, condition = undefined }}) ->
-    <<(reify_metric(M))/binary, " FROM '", C/binary>>;
+    <<(reify_metric(M))/binary, " FROM '", C/binary, "'">>;
 
 reify(#part{ selector = #selector{ collection = C, bucket = undefined,
                                    metric = M, condition = Cond }}) ->
     Where = reify_where(Cond),
-    <<(reify_metric(M))/binary, " FROM '", C/binary, "'WHERE ", Where/binary>>.
+    <<(reify_metric(M))/binary, " FROM '", C/binary, "' WHERE ", Where/binary>>;
+
+reify(#part{ fn = #fn { name = Name, args = Args }}) ->
+    Qs = reify(Args),
+    <<Name/binary, "(", Qs/binary, ")">>;
+
+reify(N) when is_integer(N) ->
+    <<(integer_to_binary(N))/binary>>;
+reify(N) when is_float(N) ->
+    <<(float_to_binary(N))/binary>>;
+reify(now) ->
+    <<"NOW">>;
+reify(N) ->
+    N.
 
 -spec reify_metric(['*' | binary()]) -> binary().
 reify_metric(Ms) when is_list(Ms) ->
@@ -64,13 +79,13 @@ reify_where(#condition{ op = 'and', args = [Clause1, Clause2] }) ->
 -spec reify_timeframe(query()) -> binary().
 reify_timeframe(#query{ beginning = undefined, ending = undefined,
                         duration = D }) ->
-    <<"LAST ", D/binary>>;
+    <<"LAST ", (reify(D))/binary>>;
 reify_timeframe(#query{ beginning = B, ending = undefined, duration = D }) ->
-    <<"AFTER ", B/binary, " FOR ", D/binary>>;
+    <<"AFTER ", (reify(B))/binary, " FOR ", (reify(D))/binary>>;
 reify_timeframe(#query{ beginning = undefined, ending = E, duration = D }) ->
-    <<"BEFORE ", E/binary, " FOR ", D/binary>>;
+    <<"BEFORE ", (reify(E))/binary, " FOR ", (reify(D))/binary>>;
 reify_timeframe(#query{ beginning = B, ending = E }) ->
-    <<"BETWEEN ", B/binary, " AND ", E/binary>>.
+    <<"BETWEEN ", (reify(B))/binary, " AND ", (reify(E))/binary>>.
 
 -spec combine(list(binary())) -> binary().
 combine(L) ->
