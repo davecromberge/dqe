@@ -29,7 +29,7 @@ expand_query(Q) ->
     end.
 
 %%selector:
-%%  {collection
+%%
 %% -type op :: 'eq' | 'neq' | 'present' | 'AND' | 'OR'
 %%
 %% -record(condition, {op :: op(),
@@ -75,30 +75,37 @@ expand_query(Q) ->
 %%     <<(unparse_metric(M))/binary, " FROM '", B/binary, "'">>;
 %% parse(#{op := lookup, args := [B, M, Where]}) ->
 %%     <<(unparse_metric(M))/binary, " FROM '", B/binary,
-%%       "' WHERE ", (unparse_where(Where))/binary>>.
+%%
+
+-type op() :: 'eq' | 'neq' | 'present' | 'and' | 'or'.
+
+-record(condition, {op :: op(),
+                    args :: [term()] }).
+
+-type condition() :: #condition{}.
 
 -record(timeframe, { beginning :: binary(),
                      ending    :: binary(),
                      duration  :: binary() }).
 
-%% -type op() :: 'eq' | 'neq' | 'present' | 'AND' | 'OR'
-%% -record(condition, { op :: op(),
-%%                      args :: [term()] }.
-%%
-%% -type timeframe() :: #timeframe{}.
+-type timeframe() :: #timeframe{}.
 
-%% -record(selector, {collection :: binary(),
-%%                    metric :: binary(),
-%%                    condition :: binary()}).
-%%
-%% -type selector() :: #selector{}.
-%%
+-record(selector, { bucket :: binary(),
+                    collection :: binary(),
+                    metric :: binary(),
+                    condition :: condition() }).
+
+%%-type selector() :: #selector{}.
+
+-record(fn, { name :: binary(),
+              args :: [term()] }).
+
+%% -type fn() :: #fn{}.
+
 %% -record(part, { selector :: selector(),
 %%                 timeshift :: binary(),
-%%                 func :: binary(),
-%%                 alias :: binary()}).
-%%
-%% -type part() :: #part{}.
+%%                 fn :: fn(),
+%%                 alias :: binary() }).
 
 %% -record(query, { parts :: [part()],
 %%                  beginning :: binary(),
@@ -119,66 +126,51 @@ compose({L1G, L1P}, {L2G, L2P}) ->
     {fun(R) -> L2G(L1G(R)) end,
      fun(A, R) -> L1P(L2P(A, L1G(R)), R) end}.
 
-
-deconstruct_(Q) ->
-    R = #{ parts => [] },
-    deconstruct_(Q, R).
-
-deconstruct_(L, R) when is_list(L) ->
-    lists:foldl(
-      fun(Q, Parts) ->
-        Part = #{ selector => undefined},
-        deconstruct_(Q, R#{parts := [Part | Parts]})
-      end, [], L);
-
-deconstruct_({ select, Q, [], T}, R) ->
+deconstruct_({ select, Q, [], T}) ->
     #timeframe{beginning = B, ending = E, duration = D} = timeframe(T),
-    deconstruct_(Q, R#{beginning => B, ending => E, duration => D});
+    Parts = deconstruct_(Q),
+    #{beginning => B, ending => E, duration => D, parts => Parts};
 
-deconstruct_(#{ op := get, args := [B, M] },
-             R = #{parts := [Part | Rest]}) ->
-    Selector = #{bucket => B, metric => M},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]};
+deconstruct_(L) when is_list(L) ->
+    [deconstruct_(Q) || Q <- L];
 
-deconstruct_(#{ op := sget, args := [B, M] },
-             R = #{parts := [Part | Rest]}) ->
-    Selector = #{bucket => B, metric => M},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]};
+deconstruct_(#{ op := get, args := [B, M] }) ->
+    #selector{bucket = B, metric = M};
 
-deconstruct_(#{ op := lookup, args := [B, undefined] },
-             R = #{parts := [Part | Rest]}) ->
-    Selector = #{collection => B, metric => <<"ALL">>},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]};
-deconstruct_(#{ op := lookup, args := [B, undefined, Where] },
-             R = #{parts := [Part | Rest]}) ->
+deconstruct_(#{ op := sget, args := [B, M] }) ->
+    #selector{bucket = B, metric = M};
+
+deconstruct_(#{ op := lookup, args := [B, undefined] }) ->
+    #selector{collection = B, metric = <<"ALL">>};
+
+deconstruct_(#{ op := lookup, args := [B, undefined, Where] }) ->
     Condition = deconstruct_where(Where),
-    Selector = #{collection => B, metric => <<"ALL">>, condition => Condition},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]};
-deconstruct_(#{op := lookup, args := [B, M]},
-             R = #{parts := [Part | Rest]}) ->
-    Selector = #{collection => B, metric => M},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]};
-deconstruct_(#{op := lookup, args := [B, M, Where]},
-             R = #{parts := [Part | Rest]}) ->
+    #selector{collection = B, metric = <<"ALL">>, condition = Condition};
+deconstruct_(#{op := lookup, args := [B, M] }) ->
+    #selector{collection = B, metric = M};
+deconstruct_(#{op := lookup, args := [B, M, Where] }) ->
     Condition = deconstruct_where(Where),
-    Selector = #{collection => B, metric => M, condition => Condition},
-    Part0 = Part#{selector := Selector},
-    R#{parts := [Part0 | Rest]}.
+    #selector{collection = B, metric = M, condition = Condition};
 
-timeframe(#{op := last, args := [Q]}) ->
+deconstruct_(#{op := fcall, args := #{name := Name, inputs := Args }}) ->
+    Qs = deconstruct_(Args),
+    #fn{ name = Name, args = Qs };
+
+deconstruct_(N) when is_integer(N)->
+    <<(integer_to_binary(N))/binary>>;
+deconstruct_(N) when is_float(N) ->
+    <<(float_to_binary(N))/binary>>.
+
+-spec timeframe(map()) -> timeframe().
+timeframe(#{op := last, args := [Q] }) ->
     #timeframe{duration = moment(Q)};
-timeframe(#{op := between, args := [A, B]}) ->
-    #timeframe{beginning = moment(A), ending = moment(B)};
+timeframe(#{op := between, args := [A, B] }) ->
+    #timeframe{beginning = moment(A), ending = moment(B) };
 timeframe(#{op := 'after', args := [A, B]}) ->
-    #timeframe{beginning = moment(A), duration = moment(B)};
+    #timeframe{beginning = moment(A), duration = moment(B) };
 timeframe(#{op := before, args := [A, B]}) ->
-    #timeframe{ending = moment(A), duration = moment(B)};
-timeframe(#{op := ago, args := [T]}) ->
+    #timeframe{ending = moment(A), duration = moment(B) };
+timeframe(#{op := ago, args := [T] }) ->
     #timeframe{beginning = moment(T)}.
 
 moment({time, T, _Unit}) ->
@@ -202,4 +194,4 @@ deconstruct_where({'or', Clause1, Clause2}) ->
 deconstruct_where({'and', Clause1, Clause2}) ->
     P1 = deconstruct_where(Clause1),
     P2 = deconstruct_where(Clause2),
-    #{ op => 'and', args => [ P1, P2 ] }.
+    #condition{ op = 'and', args = [ P1, P2 ] }.
