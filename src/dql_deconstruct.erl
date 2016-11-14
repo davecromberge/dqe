@@ -47,27 +47,14 @@ deconstruct_({ select, Q, [], T}) ->
     #query{ beginning = B, ending = E, duration = D, parts = Parts };
 
 deconstruct_(L) when is_list(L) ->
-    [begin
-         Deconstructed = deconstruct_(Q),
-         case Deconstructed of
-            #selector{} ->
-                #part{ selector = Deconstructed };
-            #fn{} ->
-                #part{ fn = Deconstructed };
-            _ ->
-                Deconstructed
-        end
-     end || Q <- L];
+    [ deconstruct_(Q) || Q <- L];
 
 deconstruct_(#{ op := get, args := [B, M] }) ->
     #selector{ bucket = B, metric = M };
-
 deconstruct_(#{ op := sget, args := [B, M] }) ->
     #selector{ bucket = B, metric = M };
-
 deconstruct_(#{ op := lookup, args := [B, undefined] }) ->
     #selector{ collection = B, metric = [<<"ALL">>] };
-
 deconstruct_(#{ op := lookup, args := [B, undefined, Where] }) ->
     Condition = deconstruct_where(Where),
     #selector{ collection = B, metric = [<<"ALL">>], condition = Condition };
@@ -124,3 +111,21 @@ deconstruct_where({'and', Clause1, Clause2}) ->
     P1 = deconstruct_where(Clause1),
     P2 = deconstruct_where(Clause2),
     #condition{ op = 'and', args = [ P1, P2 ] }.
+
+deconstruct_named(Ms) ->
+    Ms1 = [deconstruct_name(E) || E <- Ms],
+    <<".", Result/binary>> = deconstruct_named(Ms1, <<>>),
+    Result.
+deconstruct_named([Named | R], Acc) ->
+    deconstruct_named(R, <<Acc/binary, ".", Named/binary, "">>);
+deconstruct_named([], Acc) ->
+    Acc.
+
+deconstruct_name(B) when is_binary(B) ->
+    <<"'", B/binary, "'">>;
+deconstruct_name({pvar, I}) ->
+    <<"$", (integer_to_binary(I))/binary>>;
+deconstruct_name({dvar, {<<>>, K}}) ->
+    <<"$'", K/binary, "'">>;
+deconstruct_name({dvar, {Ns, K}}) ->
+    <<"$'", Ns/binary, "':'", K/binary, "'">>.

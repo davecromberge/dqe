@@ -23,10 +23,17 @@
 
 -type fn() :: #fn{}.
 
+-record(alias, { args :: [term()],
+                 prefix :: binary(),
+                 label :: binary(),
+                 tags :: [binary()] }).
+
+-type alias() :: #alias{}.
+
 -record(part, { selector :: selector(),
                 timeshift :: binary(),
                 fn :: fn(),
-                alias :: binary() }).
+                alias :: alias() }).
 
 -type part() :: #part{}.
 
