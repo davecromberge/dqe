@@ -150,25 +150,15 @@ run(Query, Timeout) ->
         {ok, {0, 0, _Parts}, _Start, _Limit} ->
             dqe_lib:pdebug('query', "prepare found no metrics.", []),
             {error, no_results};
-        {ok, {Total, Unique, Parts}, Start, Limit} ->
+        {ok, {_Total, _Unique, Parts}, Start, Limit} ->
             dqe_lib:pdebug('query', "preperation done.", []),
             WaitRef = make_ref(),
             Funnel = {dqe_funnel, [Limit, Parts]},
             Sender = {dflow_send, [self(), WaitRef, Funnel]},
-            %% We only optimize the flow when there are at least 10% duplicate
-            %% gets, or in other words if less then 90% of the requests are
-            %% unique
-            FlowOpts = case Unique / Total of
-                           UniquePercentage when UniquePercentage > 0.9;
-                                                 length(Parts) > 200 ->
-                               [terminate_when_done];
-                           _ ->
-                               [optimize, terminate_when_done]
-                       end,
+            FlowOpts = [terminate_when_done],
             {ok, _Ref, Flow} = dflow:build(Sender, FlowOpts),
             dqe_lib:pdebug('query', "flow generated.", []),
-
-dflow:start(Flow, run),
+            dflow:start(Flow, run),
             case dflow_send:recv(WaitRef, Timeout) of
                 {ok, [{error, no_results}]} ->
                     dqe_lib:pdebug('query', "Query has no results.", []),
