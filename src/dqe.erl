@@ -159,15 +159,15 @@ run(Query, Timeout) ->
             %% gets, or in other words if less then 90% of the requests are
             %% unique
             FlowOpts = case Unique / Total of
-                           UniquePercentage when UniquePercentage > 0.9,
-                                                 length(Parts) < 200 ->
+                           UniquePercentage when UniquePercentage > 0.9;
+                                                 length(Parts) > 200 ->
                                [terminate_when_done];
                            _ ->
                                [optimize, terminate_when_done]
                        end,
             {ok, _Ref, Flow} = dflow:build(Sender, FlowOpts),
             dqe_lib:pdebug('query', "flow generated.", []),
-            
+
 dflow:start(Flow, run),
             case dflow_send:recv(WaitRef, Timeout) of
                 {ok, [{error, no_results}]} ->
