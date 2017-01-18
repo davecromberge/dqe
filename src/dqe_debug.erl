@@ -17,7 +17,7 @@ start(_, State) ->
 
 emit(Child, Data, State) ->
     Name = dflow:describe(Child),
-    dqe_lib:pdebug('debug', "~p ~p~n", [Name, "emit"),
+    dqe_lib:pdebug('debug', "~p ~p~n", [Name, "emit"]),
     {emit, Data, State}.
 
 done({last, Child}, State = #state{start = Start}) ->
