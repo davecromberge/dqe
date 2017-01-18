@@ -234,7 +234,7 @@ prepare(Query) ->
 -spec add_collect([dql:query_stmt()], [dflow:step()]) -> {ok, [dflow:step()]}.
 add_collect([{named, Name, Q} | R], Acc) ->
     {ok, Resolution, Translated} = translate(Q),
-    DebugArgs = ['query', "collect " ++ Name,
+    DebugArgs = ['query', ["dqe_collect ", Name],
                  {dqe_collect, [Name, Resolution, Translated]}],
     Q1 = {dqe_debug, DebugArgs},
     add_collect(R, [Q1 | Acc]);
@@ -333,7 +333,9 @@ translate({calc, Aggrs, G}) ->
     {ok, R, lists:foldl(FoldFn, G1, Aggrs)};
 
 translate(#{op := get, resolution := R, args := Args}) ->
-    DebugArgs = ['query', "dqe_get " ++ Args, {dqe_get, Args}],
+    [_Start, _Count, _Resolution, Bucket, Key, _Chunk] = Args,
+    Name = ["dqe_get", " ", Bucket, "/", Key],
+    DebugArgs = ['query', Name, {dqe_get, Args}],
     {ok, R, {dqe_debug, DebugArgs}};
 
 translate({combine,
