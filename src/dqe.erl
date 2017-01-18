@@ -234,7 +234,8 @@ prepare(Query) ->
 -spec add_collect([dql:query_stmt()], [dflow:step()]) -> {ok, [dflow:step()]}.
 add_collect([{named, Name, Q} | R], Acc) ->
     {ok, Resolution, Translated} = translate(Q),
-    Q1 = {dqe_collect, [Name, Resolution, Translated]},
+    DebugArgs = ['query', {dqe_collect, [Name, Resolution, Translated]}],
+    Q1 = {dqe_debug, DebugArgs},
     add_collect(R, [Q1 | Acc]);
 
 add_collect([], Acc) ->
