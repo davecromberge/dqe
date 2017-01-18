@@ -31,7 +31,12 @@ emit(Child, {realized, {Data, Resolution}}, State) ->
 
 emit(Child, {points, {Data, Resolution}}, State) ->
     lager:debug("[dqe|~p] ~p~n", [Child, mmath_bin:to_list(Data)]),
-    {emit, {Data, Resolution}, State}.
+    {emit, {Data, Resolution}, State};
+
+emit(Child, Data, State) ->
+    lager:debug("[dqe|~p] ~p~n", [Child,
+                                  mmath_bin:to_list(mmath_bin:derealize(Data))]),
+    {emit, Data, State}.
 
 done({last, Child}, State = #state{start = Start}) ->
     Diff  = Start - erlang:system_time(milli_seconds),
