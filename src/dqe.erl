@@ -333,7 +333,7 @@ translate({calc, Aggrs, G}) ->
     {ok, R, lists:foldl(FoldFn, G1, Aggrs)};
 
 translate(#{op := get, resolution := R, args := Args}) ->
-    [_Start, _Count, _Resolution, Bucket, Key, _Chunk] = Args,
+    [_Start, _Count, _Resolution, Bucket, Key] = Args,
     Name = ["dqe_get", " ", Bucket, "/", Key],
     DebugArgs = ['query', Name, {dqe_get, Args}],
     {ok, R, {dqe_debug, DebugArgs}};
