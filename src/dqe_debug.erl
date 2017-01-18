@@ -4,11 +4,14 @@
 
 -export([init/1, describe/1, start/2, emit/3, done/2]).
 
--record(state, {start = erlang:system_time(milli_seconds)}).
+-record(state, {tag :: atom(),
+                name :: string(),
+                start = erlang:system_time(milli_seconds)}).
 
-init([SubQ]) when not is_list(SubQ) ->
-    dqe_lib:pdebug('debug init', "~p~n", SubQ),
-    {ok, #state{}, SubQ}.
+init([Tag, SubQ]) when is_atom(Tag), not is_list(SubQ) ->
+    {Mod, _Args} = SubQ,
+    Name = Mod:describe(),
+    {ok, #state{name = Name, tag = Tag}, SubQ}.
 
 describe(_) ->
     "debug".
@@ -16,11 +19,11 @@ describe(_) ->
 start(_, State) ->
     {ok, State}.
 
-emit(Child, Data, State) ->
-    dqe_lib:pdebug('debug', "~p ~p~n", [Child, "emit"]),
+emit(_Child, Data, State = #state{name = Name, tag = Tag}) ->
+    dqe_lib:pdebug(Tag, "~p emit ~n", [Name]),
     {emit, Data, State}.
 
-done({last, Child}, State = #state{start = Start}) ->
+done({last, _Child}, State = #state{start = Start, name = Name, tag = Tag}) ->
     Diff  = Start - erlang:system_time(milli_seconds),
-    dqe_lib:pdebug('debug', "~p Finished after ~pms.~n", [Child, Diff]),
+    dqe_lib:pdebug(Tag, "~p finished after ~pms.~n", [Name, Diff]),
     {done, State}.
