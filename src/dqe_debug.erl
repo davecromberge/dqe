@@ -16,11 +16,12 @@ start(_, State) ->
     {ok, State}.
 
 emit(Child, Data, State) ->
-    dqe_lib:pdebug('debug', "~p ~p~n", [Child,
-                                  mmath_bin:to_list(mmath_bin:derealize(Data))]),
+    Name = dflow:describe(Child),
+    dqe_lib:pdebug('debug', "~p ~p~n", [Name, "emit"),
     {emit, Data, State}.
 
 done({last, Child}, State = #state{start = Start}) ->
+    Name = dflow:describe(Child),
     Diff  = Start - erlang:system_time(milli_seconds),
-    dqe_lib:pdebug('debug', "Finished after ~pms.~n", [Child, Diff]),
+    dqe_lib:pdebug('debug', "~p Finished after ~pms.~n", [Name, Diff]),
     {done, State}.
