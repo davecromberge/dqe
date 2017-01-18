@@ -169,6 +169,7 @@ run(Query, Timeout) ->
                        end,
             {ok, _Ref, Flow} = dflow:build(Sender, FlowOpts),
             dqe_lib:pdebug('query', "flow generated.", []),
+            dqe_lib:pdebug('query', "flow: ~p", [Flow]),
             dflow:start(Flow, run),
             case dflow_send:recv(WaitRef, Timeout) of
                 {ok, [{error, no_results}]} ->
@@ -330,7 +331,7 @@ translate({calc, Aggrs, G}) ->
     {ok, R, lists:foldl(FoldFn, G1, Aggrs)};
 
 translate(#{op := get, resolution := R, args := Args}) ->
-    {ok, R, {dqe_debug, [{dqe_get, Args}]}};
+    {ok, R, {dqe_get, Args}};
 
 translate({combine,
              #{resolution := R, args := #{mod := Mod, state := State}},
