@@ -23,6 +23,6 @@ emit(_Child, Data, State = #state{mod = Mod, tag = Tag}) ->
     {emit, Data, State}.
 
 done({last, _Child}, State = #state{start = Start, mod = Mod, tag = Tag}) ->
-    Diff  = Start - erlang:system_time(milli_seconds),
+    Diff  = erlang:system_time(milli_seconds) - Start,
     dqe_lib:pdebug(Tag, "~p finished after ~pms.~n", [Mod, Diff]),
     {done, State}.
