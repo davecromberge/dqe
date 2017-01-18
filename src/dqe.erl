@@ -330,7 +330,7 @@ translate({calc, Aggrs, G}) ->
     {ok, R, lists:foldl(FoldFn, G1, Aggrs)};
 
 translate(#{op := get, resolution := R, args := Args}) ->
-    {ok, R, {dqe_get, Args}};
+    {ok, R, {dqe_debug, [{dqe_get, Args}]}};
 
 translate({combine,
              #{resolution := R, args := #{mod := Mod, state := State}},
