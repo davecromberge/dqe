@@ -169,7 +169,6 @@ run(Query, Timeout) ->
                        end,
             {ok, _Ref, Flow} = dflow:build(Sender, FlowOpts),
             dqe_lib:pdebug('query', "flow generated.", []),
-            dqe_lib:pdebug('query', "flow: ~p", [Flow]),
             dflow:start(Flow, run),
             case dflow_send:recv(WaitRef, Timeout) of
                 {ok, [{error, no_results}]} ->
@@ -213,6 +212,7 @@ prepare(Query) ->
             dqe_lib:pdebug('prepare', "Counting parts ~p total and ~p unique.",
                            [Total, Unique]),
             {ok, Parts1} = add_collect(Parts, []),
+            dqe_lib:pdebug('query', "flow parts: ~p", [Parts1]),
             dqe_lib:pdebug('prepare', "Naming applied.", []),
             {ok, {Total, Unique, Parts1}, Start, Limit};
         E ->
