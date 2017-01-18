@@ -16,29 +16,29 @@ start(_, State) ->
     {ok, State}.
 
 emit(Child, {realized, {Name, Data, Resolution}}, State) ->
-    lager:debug("[dqe|~p:~s] ~p~n", [Child, Name,
+    dqe_lib:pdebug("[dqe_debug|~p:~s] ~p~n", [Child, Name,
                                      mmath_bin:to_list(mmath_bin:derealize(Data))]),
     {emit, {Name, Data, Resolution}, State};
 
 emit(Child, {points, {Name, Data, Resolution}}, State) ->
-    lager:debug("[dqe|~p:~s] ~p~n", [Child, Name,
+    dqe_lib:pdebug("[dqe_debug|~p:~s] ~p~n", [Child, Name,
                                      mmath_bin:to_list(Data)]),
     {emit, {Name, Data, Resolution}, State};
 
 emit(Child, {realized, {Data, Resolution}}, State) ->
-    lager:debug("[dqe|~p] ~p~n", [Child, mmath_bin:to_list(mmath_bin:derealize(Data))]),
+    dqe_lib:pdebug("[dqe_debug|~p] ~p~n", [Child, mmath_bin:to_list(mmath_bin:derealize(Data))]),
     {emit, {Data, Resolution}, State};
 
 emit(Child, {points, {Data, Resolution}}, State) ->
-    lager:debug("[dqe|~p] ~p~n", [Child, mmath_bin:to_list(Data)]),
+    dqe_lib:pdebug("[dqe_debug|~p] ~p~n", [Child, mmath_bin:to_list(Data)]),
     {emit, {Data, Resolution}, State};
 
 emit(Child, Data, State) ->
-    lager:debug("[dqe|~p] ~p~n", [Child,
+    dqe_lib:pdebug("[dqe_debug|~p] ~p~n", [Child,
                                   mmath_bin:to_list(mmath_bin:derealize(Data))]),
     {emit, Data, State}.
 
 done({last, Child}, State = #state{start = Start}) ->
     Diff  = Start - erlang:system_time(milli_seconds),
-    lager:debug("[dqe|~p] Finished after ~pms.~n", [Child, Diff]),
+    dqe_lib:pdebug("[dqe_debug|~p] Finished after ~pms.~n", [Child, Diff]),
     {done, State}.
