@@ -12,7 +12,7 @@ init([SubQ]) when not is_list(SubQ) ->
 describe(_) ->
     "debug".
 
-start({_Start, _Count}, State) ->
+start(_, State) ->
     {ok, State}.
 
 emit(Child, {realized, {Name, Data, Resolution}}, State) ->
