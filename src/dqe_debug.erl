@@ -7,6 +7,7 @@
 -record(state, {start = erlang:system_time(milli_seconds)}).
 
 init([SubQ]) when not is_list(SubQ) ->
+    dqe_lib:pdebug('debug init', "~p~n", SubQ),
     {ok, #state{}, SubQ}.
 
 describe(_) ->
@@ -16,12 +17,10 @@ start(_, State) ->
     {ok, State}.
 
 emit(Child, Data, State) ->
-    Name = dflow:describe(Child),
-    dqe_lib:pdebug('debug', "~p ~p~n", [Name, "emit"]),
+    dqe_lib:pdebug('debug', "~p ~p~n", [Child, "emit"]),
     {emit, Data, State}.
 
 done({last, Child}, State = #state{start = Start}) ->
-    Name = dflow:describe(Child),
     Diff  = Start - erlang:system_time(milli_seconds),
-    dqe_lib:pdebug('debug', "~p Finished after ~pms.~n", [Name, Diff]),
+    dqe_lib:pdebug('debug', "~p Finished after ~pms.~n", [Child, Diff]),
     {done, State}.
